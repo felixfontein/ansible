@@ -38,10 +38,6 @@
       ports: 5000
     register: registry_container
 
-  - name: Get registry URL
-    set_fact:
-      registry_address: "localhost:{{ registry_container.container.NetworkSettings.Ports['5000/tcp'].0.HostPort }}"
-
   - name: Start nginx frontend for registry
     docker_volume:
       name: "{{ nginx_name }}"
@@ -95,11 +91,39 @@
       state: started
     register: nginx_container
 
-  - debug: var=nginx_container.container.NetworkSettings
+  - name: Get registry URLs
+    set_fact:
+      registry_unauthenticated: "{{ nginx_container.container.NetworkSettings.IPAddress }}:4999"
+      registry_authenticated: "{{ nginx_container.container.NetworkSettings.IPAddress }}:5000"
+
+  - name: Create CSR for frontend certificate, now with container IP
+    openssl_csr:
+      path: "{{ output_dir }}/cert.csr"
+      privatekey_path: "{{ output_dir }}/cert.key"
+      subject_alt_name:
+        - "DNS:test-registry.ansible.com"
+        - "IP:{{ nginx_container.container.NetworkSettings.IPAddress }}"
+  - name: Create frontend certificate
+    openssl_certificate:
+      path: "{{ output_dir }}/cert.pem"
+      csr_path: "{{ output_dir }}/cert.csr"
+      privatekey_path: "{{ output_dir }}/cert.key"
+      provider: selfsigned
+
+  - name: Copy dynamic files into volume
+    command: docker cp {{ output_dir }}/{{ item }} {{ nginx_name }}:/etc/nginx/{{ item }}
+    loop:
+      - "cert.pem"
+
+  - name: Restart nginx frontend for registry
+    docker_container:
+      name: "{{ nginx_name }}"
+      restart: yes
+    register: nginx_container
 
   - name: Wait for registry frontend
     uri:
-      url: "https://{{ nginx_container.container.NetworkSettings.IPAddress }}:5000/v2/"
+      url: "https://{{ registry_authenticated }}/v2/"
       url_username: testuser
       url_password: hunter2
       validate_certs: no
@@ -108,11 +132,7 @@
     retries: 5
     delay: 1
 
-  - name: Get registry URL
-    set_fact:
-      registry_frontend_address: "localhost:{{ nginx_container.container.NetworkSettings.Ports['5000/tcp'].0.HostPort }}"
-
-  - debug: msg="Registry available under {{ registry_address }}, NGINX frontend available under {{ registry_frontend_address }}"
+  - debug: msg="Registry without authentication available under {{ registry_unauthenticated }}, with authentication available under {{ registry_authenticated }}"
 
   when: docker_py_version is version('1.8.0', '>=') and docker_api_version is version('1.20', '>=')
 

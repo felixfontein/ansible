@@ -1,7 +1,7 @@
 ---
 - name: Log in with wrong password (check mode)
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     username: testuser
     password: "1234"
     state: present
@@ -11,7 +11,7 @@
 
 - name: Log in with wrong password
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     username: testuser
     password: "1234"
     state: present
@@ -22,13 +22,13 @@
   assert:
     that:
       - login_failed_check is failed
-      - "('login attempt to http://' ~ registry_frontend_address ~ '/v2/ failed') in login_failed_check.msg"
+      - "('login attempt to http://' ~ registry_authenticated ~ '/v2/ failed') in login_failed_check.msg"
       - login_failed is failed
-      - "('login attempt to http://' ~ registry_frontend_address ~ '/v2/ failed') in login_failed.msg"
+      - "('login attempt to http://' ~ registry_authenticated ~ '/v2/ failed') in login_failed.msg"
 
 - name: Log in (check mode)
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     username: testuser
     password: hunter2
     state: present
@@ -37,7 +37,7 @@
 
 - name: Log in
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     username: testuser
     password: hunter2
     state: present
@@ -45,7 +45,7 @@
 
 - name: Log in (idempotent)
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     username: testuser
     password: hunter2
     state: present
@@ -53,7 +53,7 @@
 
 - name: Log in (idempotent, check mode)
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     username: testuser
     password: hunter2
     state: present
@@ -70,7 +70,7 @@
 
 - name: Log in again with wrong password (check mode)
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     username: testuser
     password: "1234"
     state: present
@@ -80,7 +80,7 @@
 
 - name: Log in again with wrong password
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     username: testuser
     password: "1234"
     state: present
@@ -91,32 +91,32 @@
   assert:
     that:
       - login_failed_check is failed
-      - "('login attempt to http://' ~ registry_frontend_address ~ '/v2/ failed') in login_failed_check.msg"
+      - "('login attempt to http://' ~ registry_authenticated ~ '/v2/ failed') in login_failed_check.msg"
       - login_failed is failed
-      - "('login attempt to http://' ~ registry_frontend_address ~ '/v2/ failed') in login_failed.msg"
+      - "('login attempt to http://' ~ registry_authenticated ~ '/v2/ failed') in login_failed.msg"
 
 - name: Log out (check mode)
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     state: absent
   register: logout_1
   check_mode: yes
 
 - name: Log out
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     state: absent
   register: logout_2
 
 - name: Log out (idempotent)
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     state: absent
   register: logout_3
 
 - name: Log out (idempotent, check mode)
   docker_login:
-    registry_url: "{{ registry_frontend_address }}"
+    registry_url: "{{ registry_authenticated }}"
     state: absent
   register: logout_4
   check_mode: yes

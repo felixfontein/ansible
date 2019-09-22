@@ -5,8 +5,8 @@
 
 - name: Determining pushed image names
   set_fact:
-    hello_world_image_base: "{{ registry_address }}/test/hello-world"
-    test_image_base: "{{ registry_address }}/test/{{ iname }}"
+    hello_world_image_base: "{{ registry_unauthenticated }}/test/hello-world"
+    test_image_base: "{{ registry_unauthenticated }}/test/{{ iname }}"
 
 - name: Registering image name
   set_fact:
