@@ -284,7 +284,7 @@ class Connection(ConnectionBase):
         super(Connection, self).put_file(in_path, out_path)
         display.vvv("PUT %s TO %s" % (in_path, out_path), host=self._play_context.remote_addr)
 
-        if not if getattr(self._shell, "_IS_WINDOWS", False):
+        if not getattr(self._shell, "_IS_WINDOWS", False):
             out_path = self._prefix_login_path(out_path)
 
         if not os.path.exists(to_bytes(in_path, errors='surrogate_or_strict')):
