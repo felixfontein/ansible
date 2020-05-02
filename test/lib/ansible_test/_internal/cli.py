@@ -534,6 +534,13 @@ def parse_args():
                         action='store_true',
                         help='enable optional errors')
 
+    sanity.add_argument('--collection-version_added',
+                        metavar='VERSION',
+                        nargs='?',
+                        default=None,
+                        const='auto',
+                        help='Enable version_added checks for collections. Optionally specify expected value to compare to')
+
     add_lint(sanity)
     add_extra_docker_options(sanity, integration=False)
 
@@ -1029,14 +1036,9 @@ def add_extra_docker_options(parser, integration=True):
                         dest='docker_pull',
                         help='do not explicitly pull the latest docker images')
 
-    if data_context().content.is_ansible:
-        docker.add_argument('--docker-keep-git',
-                            action='store_true',
-                            help='transfer git related files into the docker container')
-    else:
-        docker.set_defaults(
-            docker_keep_git=False,
-        )
+    docker.add_argument('--docker-keep-git',
+                        action='store_true',
+                        help='transfer git related files into the docker container')
 
     docker.add_argument('--docker-seccomp',
                         metavar='SC',

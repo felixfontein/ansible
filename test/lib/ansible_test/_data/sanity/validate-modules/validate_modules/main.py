@@ -255,7 +255,7 @@ class ModuleValidator(Validator):
     WHITELIST_FUTURE_IMPORTS = frozenset(('absolute_import', 'division', 'print_function'))
 
     def __init__(self, path, analyze_arg_spec=False, collection=None, collection_version=None,
-                 base_branch=None, git_cache=None, reporter=None, routing=None):
+                 collection_version_added=None, base_branch=None, git_cache=None, reporter=None, routing=None):
         super(ModuleValidator, self).__init__(reporter=reporter or Reporter())
 
         self.path = path
@@ -279,6 +279,8 @@ class ModuleValidator(Validator):
         if collection_version is not None:
             self.collection_version_str = collection_version
             self.collection_version = SemanticVersion(collection_version)
+
+        self.collection_version_added = collection_version_added
 
         self.base_branch = base_branch
         self.git_cache = git_cache or GitCache()
@@ -1032,7 +1034,7 @@ class ModuleValidator(Validator):
                             'invalid-documentation',
                         )
 
-                    if not self.collection:
+                    if not self.collection or self.collection_version_added:
                         existing_doc = self._check_for_new_args(doc)
                         self._check_version_added(doc, existing_doc)
 
@@ -1160,17 +1162,17 @@ class ModuleValidator(Validator):
         try:
             collection_name = doc.get('version_added_collection')
             version_added = self._create_strict_version(
-                str(version_added_raw or '0.0'),
+                str(version_added_raw or '0.0.0'),
                 collection_name=collection_name)
-        except ValueError as e:
-            version_added = version_added_raw or '0.0'
-            if self._is_new_module() or version_added != 'historical':
+        except ValueError:
+            version_added = version_added_raw or '0.0.0'
+            if self._is_new_module() or not (version_added == 'historical' and collection_name == 'ansible.builtin'):
                 # already reported during schema validation, except:
-                if version_added == 'historical':
+                if version_added == 'historical' and collection_name == 'ansible.builtin':
                     self.reporter.error(
                         path=self.object_path,
                         code='module-invalid-version-added',
-                        msg='version_added is not a valid version number: %r. Error: %s' % (version_added, e)
+                        msg='version_added is not a valid version number: %r' % 'historical'
                     )
                 return
 
@@ -1184,11 +1186,14 @@ class ModuleValidator(Validator):
         if not self._is_new_module():
             return
 
-        should_be = '.'.join(ansible_version.split('.')[:2])
-        strict_ansible_version = self._create_strict_version(should_be, collection_name='ansible.builtin')
+        if self.collection:
+            should_be = self.collection_version_added
+        else:
+            should_be = '.'.join(ansible_version.split('.')[:2])
+        should_be_strict = self._create_strict_version(should_be, collection_name=self.collection_name)
 
-        if (version_added < strict_ansible_version or
-                strict_ansible_version < version_added):
+        if (version_added < should_be_strict or
+                should_be_strict < version_added):
             self.reporter.error(
                 path=self.object_path,
                 code='module-incorrect-version-added',
@@ -2027,16 +2032,21 @@ class ModuleValidator(Validator):
         try:
             mod_collection_name = existing_doc.get('version_added_collection')
             mod_version_added = self._create_strict_version(
-                str(existing_doc.get('version_added', '0.0')),
+                str(existing_doc.get('version_added', '0.0.0')),
                 collection_name=mod_collection_name)
         except ValueError:
             mod_collection_name = self.collection_name
-            mod_version_added = self._create_strict_version('0.0')
+            mod_version_added = self._create_strict_version(
+                '0.0.0', collection_name=self.collection_name)
 
         options = doc.get('options', {}) or {}
 
-        should_be = '.'.join(ansible_version.split('.')[:2])
-        strict_ansible_version = self._create_strict_version(should_be, collection_name='ansible.builtin')
+        if self.collection:
+            should_be = self.collection_version_added
+        else:
+            should_be = '.'.join(ansible_version.split('.')[:2])
+        should_be_strict = self._create_strict_version(
+            should_be, collection_name=self.collection_name)
 
         for option, details in options.items():
             try:
@@ -2075,7 +2085,7 @@ class ModuleValidator(Validator):
             try:
                 collection_name = details.get('version_added_collection')
                 version_added = self._create_strict_version(
-                    str(details.get('version_added', '0.0')),
+                    str(details.get('version_added', '0.0.0')),
                     collection_name=collection_name)
             except ValueError as e:
                 # already reported during schema validation
@@ -2083,9 +2093,9 @@ class ModuleValidator(Validator):
 
             if collection_name != self.collection_name:
                 continue
-            if (strict_ansible_version != mod_version_added and
-                    (version_added < strict_ansible_version or
-                     strict_ansible_version < version_added)):
+            if (should_be_strict != mod_version_added and
+                    (version_added < should_be_strict or
+                     should_be_strict < version_added)):
                 self.reporter.error(
                     path=self.object_path,
                     code='option-incorrect-version-added',
@@ -2304,13 +2314,16 @@ def run():
     parser.add_argument('--collection-version',
                         help='The collection\'s version number used to check '
                              'deprecations')
+    parser.add_argument('--collection-version_added',
+                        help='Enable version_added checks for collections; uses '
+                             'given version to compare to')
 
     args = parser.parse_args()
 
     args.modules = [m.rstrip('/') for m in args.modules]
 
     reporter = Reporter()
-    git_cache = GitCache(args.base_branch)
+    git_cache = GitCache(args.base_branch, collection=args.collection)
 
     check_dirs = set()
 
@@ -2336,6 +2349,7 @@ def run():
             if ModuleValidator.is_blacklisted(path):
                 continue
             with ModuleValidator(path, collection=args.collection, collection_version=args.collection_version,
+                                 collection_version_added=args.collection_version_added,
                                  analyze_arg_spec=args.arg_spec, base_branch=args.base_branch,
                                  git_cache=git_cache, reporter=reporter, routing=routing) as mv1:
                 mv1.validate()
@@ -2360,6 +2374,7 @@ def run():
                 if ModuleValidator.is_blacklisted(path):
                     continue
                 with ModuleValidator(path, collection=args.collection, collection_version=args.collection_version,
+                                     collection_version_added=args.collection_version_added,
                                      analyze_arg_spec=args.arg_spec, base_branch=args.base_branch,
                                      git_cache=git_cache, reporter=reporter, routing=routing) as mv2:
                     mv2.validate()
@@ -2376,16 +2391,20 @@ def run():
 
 
 class GitCache:
-    def __init__(self, base_branch):
+    def __init__(self, base_branch, collection=None):
         self.base_branch = base_branch
 
+        self.base_path = 'lib/ansible/modules/'
+        if collection:
+            self.base_path = 'plugins/modules/'
+
         if self.base_branch:
-            self.base_tree = self._git(['ls-tree', '-r', '--name-only', self.base_branch, 'lib/ansible/modules/'])
+            self.base_tree = self._git(['ls-tree', '-r', '--name-only', self.base_branch, self.base_path])
         else:
             self.base_tree = []
 
         try:
-            self.head_tree = self._git(['ls-tree', '-r', '--name-only', 'HEAD', 'lib/ansible/modules/'])
+            self.head_tree = self._git(['ls-tree', '-r', '--name-only', 'HEAD', self.base_path])
         except GitError as ex:
             if ex.status == 128:
                 # fallback when there is no .git directory
@@ -2412,11 +2431,10 @@ class GitCache:
                 if os.path.islink(path):
                     self.head_aliased_modules.add(os.path.basename(os.path.realpath(path)))
 
-    @staticmethod
-    def _get_module_files():
+    def _get_module_files(self):
         module_files = []
 
-        for (dir_path, dir_names, file_names) in os.walk('lib/ansible/modules/'):
+        for (dir_path, dir_names, file_names) in os.walk(self.base_path):
             for file_name in file_names:
                 module_files.append(os.path.join(dir_path, file_name))
 
