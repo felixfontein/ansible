@@ -330,18 +330,18 @@ def list_dict_option_schema(for_collection, plugin_type):
                     {
                         # This definition makes sure everything has the correct types/values
                         'why': Any(*string_types),
-                        'alternative': Any(*string_types),
+                        'alternatives': Any(*string_types),
                         # vod stands for 'version or date'; this is the name of the exclusive group
                         Exclusive('removed_at_date', 'vod'): date(),
                         Exclusive('version', 'vod'): version(for_collection),
-                        'removed_from_collection': collection_name,
+                        'collection_name': collection_name,
                     },
                     {
                         # This definition makes sure that everything we require is there
                         Required('why'): Any(*string_types),
-                        'alternative': Any(*string_types),
+                        'alternatives': Any(*string_types),
                         Required(Any('removed_at_date', 'version')): Any(*string_types),
-                        Required('removed_from_collection'): Any(*string_types),
+                        Required('collection_name'): Any(*string_types),
                     },
                 ),
                 extra=PREVENT_EXTRA
