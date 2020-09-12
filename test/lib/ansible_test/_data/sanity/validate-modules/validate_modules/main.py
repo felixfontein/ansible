@@ -93,6 +93,10 @@ OS_CALL_REGEX = re.compile(r'os\.call.*')
 LOOSE_ANSIBLE_VERSION = LooseVersion('.'.join(ansible_version.split('.')[:3]))
 
 
+PLUGINS_WITHOUT_RETURN_VALUES = ('become', 'cache', 'cliconf', 'connection', 'httpapi', 'inventory', 'netconf', 'shell', 'strategy', 'vars')
+PLUGINS_WITHOUT_EXAMPLES = ('cliconf', 'shell', 'strategy')
+
+
 def compare_dates(d1, d2):
     try:
         date1 = parse_isodate(d1, allow_date=True)
@@ -946,7 +950,8 @@ class ModuleValidator(Validator):
                     self.name, 'DOCUMENTATION'
                 )
                 if doc:
-                    add_collection_to_versions_and_dates(doc, self.collection_name, is_module=True)
+                    add_collection_to_versions_and_dates(doc, self.collection_name,
+                                                         is_module=self.plugin_type == 'module')
                 for error in errors:
                     self.reporter.error(
                         path=self.object_path,
@@ -963,7 +968,8 @@ class ModuleValidator(Validator):
                     with CaptureStd():
                         try:
                             get_docstring(self.path, fragment_loader, verbose=True,
-                                          collection_name=self.collection_name, is_module=True)
+                                          collection_name=self.collection_name,
+                                          is_module=self.plugin_type == 'module')
                         except AssertionError:
                             fragment = doc['extends_documentation_fragment']
                             self.reporter.error(
@@ -984,7 +990,8 @@ class ModuleValidator(Validator):
                             )
 
                     if not missing_fragment:
-                        add_fragments(doc, self.object_path, fragment_loader=fragment_loader, is_module=True)
+                        add_fragments(doc, self.object_path, fragment_loader=fragment_loader,
+                                      is_module=self.plugin_type == 'module')
 
                     if 'options' in doc and doc['options'] is None:
                         self.reporter.error(
@@ -1040,10 +1047,17 @@ class ModuleValidator(Validator):
                         self._check_version_added(doc, existing_doc)
 
             if not bool(doc_info['EXAMPLES']['value']):
+                if self.plugin_type not in PLUGINS_WITHOUT_EXAMPLES:
+                    self.reporter.error(
+                        path=self.object_path,
+                        code='missing-examples',
+                        msg='No EXAMPLES provided'
+                    )
+            elif self.plugin_type in PLUGINS_WITHOUT_EXAMPLES:
                 self.reporter.error(
                     path=self.object_path,
-                    code='missing-examples',
-                    msg='No EXAMPLES provided'
+                    code='has-examples',
+                    msg='{0} plugins must not have EXAMPLES'.format(self.plugin_type.title())
                 )
             else:
                 _doc, errors, traces = parse_yaml(doc_info['EXAMPLES']['value'],
@@ -1062,24 +1076,32 @@ class ModuleValidator(Validator):
                     )
 
             if not bool(doc_info['RETURN']['value']):
-                if self._is_new_module():
-                    self.reporter.error(
-                        path=self.object_path,
-                        code='missing-return',
-                        msg='No RETURN provided'
-                    )
-                else:
-                    self.reporter.warning(
-                        path=self.object_path,
-                        code='missing-return-legacy',
-                        msg='No RETURN provided'
-                    )
+                if self.plugin_type not in PLUGINS_WITHOUT_RETURN_VALUES:
+                    if self._is_new_module():
+                        self.reporter.error(
+                            path=self.object_path,
+                            code='missing-return',
+                            msg='No RETURN provided'
+                        )
+                    else:
+                        self.reporter.warning(
+                            path=self.object_path,
+                            code='missing-return-legacy',
+                            msg='No RETURN provided'
+                        )
+            elif self.plugin_type in PLUGINS_WITHOUT_RETURN_VALUES:
+                self.reporter.warning(
+                    path=self.object_path,
+                    code='has-return',
+                    msg='{0} plugins must not have RETURN documentation'.format(self.plugin_type.title())
+                )
             else:
                 data, errors, traces = parse_yaml(doc_info['RETURN']['value'],
                                                   doc_info['RETURN']['lineno'],
                                                   self.name, 'RETURN')
                 if data:
-                    add_collection_to_versions_and_dates(data, self.collection_name, is_module=True, return_docs=True)
+                    add_collection_to_versions_and_dates(data, self.collection_name,
+                                                         is_module=self.plugin_type == 'module', return_docs=True)
                 self._validate_docs_schema(data,
                                            return_schema(for_collection=bool(self.collection), plugin_type=self.plugin_type),
                                            'RETURN', 'return-syntax-error')
@@ -1434,7 +1456,8 @@ class ModuleValidator(Validator):
 
         try:
             if not context:
-                add_fragments(docs, self.object_path, fragment_loader=fragment_loader, is_module=True)
+                add_fragments(docs, self.object_path, fragment_loader=fragment_loader,
+                              is_module=self.plugin_type == 'module')
         except Exception:
             # Cannot merge fragments
             return
@@ -2002,7 +2025,8 @@ class ModuleValidator(Validator):
         with CaptureStd():
             try:
                 existing_doc, dummy_examples, dummy_return, existing_metadata = get_docstring(
-                    self.base_module, fragment_loader, verbose=True, collection_name=self.collection_name, is_module=True)
+                    self.base_module, fragment_loader, verbose=True, collection_name=self.collection_name,
+                    is_module=self.plugin_type == 'module')
                 existing_options = existing_doc.get('options', {}) or {}
             except AssertionError:
                 fragment = doc['extends_documentation_fragment']
