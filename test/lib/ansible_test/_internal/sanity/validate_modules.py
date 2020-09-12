@@ -7,9 +7,6 @@ import os
 
 from collections import defaultdict
 
-# from ansible.constants import DOCUMENTABLE_PLUGINS
-DOCUMENTABLE_PLUGINS = ('become', 'cache', 'callback', 'cliconf', 'connection', 'httpapi', 'inventory', 'lookup', 'module', 'netconf', 'shell', 'strategy', 'vars')
-
 from .. import types as t
 
 from ..sanity import (
@@ -53,13 +50,20 @@ from ..data import (
 )
 
 
+# from ansible.constants import DOCUMENTABLE_PLUGINS
+DOCUMENTABLE_PLUGINS = (
+    'become', 'cache', 'callback', 'cliconf', 'connection', 'httpapi', 'inventory', 'lookup', 'module',
+    'netconf', 'shell', 'strategy', 'vars',
+)
+
+
 def _get_plugin_type_getter():
     content = data_context().content
-    prefixes = {
-        plugin_type: content.plugin_paths.get(plugin_type) + '/'
+    prefixes = dict(
+        (plugin_type, content.plugin_paths.get(plugin_type) + '/')
         for plugin_type in DOCUMENTABLE_PLUGINS
         if plugin_type != 'module'
-    }
+    )
     exceptions = set()
     for prefix in prefixes.values():
         exceptions.add(prefix + '__init__.py')
