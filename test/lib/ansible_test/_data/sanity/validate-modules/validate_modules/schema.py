@@ -375,7 +375,7 @@ def return_contains(v):
     return v
 
 
-def return_schema(for_collection):
+def return_schema(for_collection, plugin_type='module'):
     return_contains_schema = Any(
         All(
             Schema(
@@ -488,13 +488,13 @@ def author(value):
     return value
 
 
-def doc_schema(module_name, for_collection=False, deprecated_module=False):
+def doc_schema(module_name, for_collection=False, deprecated_module=False, plugin_type='module'):
 
     if module_name.startswith('_'):
         module_name = module_name[1:]
         deprecated_module = True
     doc_schema_dict = {
-        Required('module'): module_name,
+        Required(plugin_type): module_name,
         Required('short_description'): Any(*string_types),
         Required('description'): Any(list_string_types, *string_types),
         Required('author'): All(Any(None, list_string_types, *string_types), author),
