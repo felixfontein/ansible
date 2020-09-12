@@ -929,7 +929,9 @@ class ModuleValidator(Validator):
 
         # We are testing a collection
         if self.routing:
-            routing_deprecation = self.routing.get('plugin_routing', {}).get('modules', {}).get(self.name, {}).get('deprecation', {})
+            routing_deprecation = self.routing.get('plugin_routing', {})
+            routing_deprecation = routing_deprecation.get('modules' if self.plugin_type == 'module' else self.plugin_type, {})
+            routing_deprecation = routing_deprecation.get(self.name, {}).get('deprecation', {})
             if routing_deprecation:
                 # meta/runtime.yml says this is deprecated
                 routing_says_deprecated = True
