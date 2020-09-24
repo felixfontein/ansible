@@ -95,6 +95,7 @@ LOOSE_ANSIBLE_VERSION = LooseVersion('.'.join(ansible_version.split('.')[:3]))
 
 PLUGINS_WITH_RETURN_VALUES = ('module', )
 PLUGINS_WITH_EXAMPLES = ('module', )
+PLUGINS_WITH_YAML_EXAMPLES = ('module', )
 
 
 def compare_dates(d1, d2):
@@ -1055,7 +1056,7 @@ class ModuleValidator(Validator):
                         code='missing-examples',
                         msg='No EXAMPLES provided'
                     )
-            else:
+            elif self.plugin_type in PLUGINS_WITH_YAML_EXAMPLES:
                 _doc, errors, traces = parse_yaml(doc_info['EXAMPLES']['value'],
                                                   doc_info['EXAMPLES']['lineno'],
                                                   self.name, 'EXAMPLES', load_all=True)
