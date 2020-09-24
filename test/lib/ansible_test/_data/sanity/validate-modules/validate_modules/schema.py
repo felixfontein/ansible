@@ -310,6 +310,13 @@ def version_added(v, error_code='version-added-invalid', accept_historical=False
 
 
 def list_dict_option_schema(for_collection, plugin_type):
+    if plugin_type == 'module':
+        option_types = Any(None, 'bits', 'bool', 'bytes', 'dict', 'float', 'int', 'json', 'jsonarg', 'list', 'path', 'raw', 'sid', 'str')
+        element_types = Any(None, 'bits', 'bool', 'bytes', 'dict', 'float', 'int', 'json', 'jsonarg', 'list', 'path', 'raw', 'sid', 'str')
+    else:
+        option_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'none', 'path', 'tmp', 'temppath', 'tmppath', 'pathspec', 'pathlist', 'str', 'string')
+        element_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'none', 'path', 'tmp', 'temppath', 'tmppath', 'pathspec', 'pathlist', 'str', 'string')
+
     basic_option_schema = {
         Required('description'): Any(list_string_types, *string_types),
         'required': bool,
@@ -319,9 +326,9 @@ def list_dict_option_schema(for_collection, plugin_type):
         'version_added_collection': collection_name,
         'default': json_value,
         # Note: Types are strings, not literal bools, such as True or False
-        'type': Any(None, 'bits', 'bool', 'bytes', 'dict', 'float', 'int', 'json', 'jsonarg', 'list', 'path', 'raw', 'sid', 'str'),
+        'type': option_types,
         # in case of type='list' elements define type of individual item in list
-        'elements': Any(None, 'bits', 'bool', 'bytes', 'dict', 'float', 'int', 'json', 'jsonarg', 'list', 'path', 'raw', 'sid', 'str'),
+        'elements': element_types,
     }
     if plugin_type != 'module':
         deprecated_schema = All(
@@ -428,22 +435,36 @@ def return_contains(v):
 
 
 def return_schema(for_collection, plugin_type='module'):
+    if plugin_type == 'module':
+        return_types = Any('bool', 'complex', 'dict', 'float', 'int', 'list', 'str')
+        element_types = Any(None, 'bits', 'bool', 'bytes', 'dict', 'float', 'int', 'json', 'jsonarg', 'list', 'path', 'raw', 'sid', 'str')
+    else:
+        option_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'path', 'str', 'string')
+        element_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'path', 'str', 'string')
+
+    basic_return_option_schema = {
+        Required('description'): Any(list_string_types, *string_types),
+        'returned': Any(*string_types),
+        'version_added': version(for_collection),
+        'version_added_collection': collection_name,
+        'sample': json_value,
+        'example': json_value,
+        # in case of type='list' elements define type of individual item in list
+        'elements': element_types,
+    }
+    if plugin_type == 'module':
+        # type is only required for modules right now
+        basic_return_option_schema[Required('type')] = return_types
+    else:
+        basic_return_option_schema['type'] = return_types
+
+    inner_return_option_schema = dict(basic_return_option_schema)
+    inner_return_option_schema.update({
+        'contains': Any(None, *list({str_type: Self} for str_type in string_types)),
+    })
     return_contains_schema = Any(
         All(
-            Schema(
-                {
-                    Required('description'): Any(list_string_types, *string_types),
-                    'returned': Any(*string_types),  # only returned on top level
-                    Required('type'): Any('bool', 'complex', 'dict', 'float', 'int', 'list', 'str'),
-                    'version_added': version(for_collection),
-                    'version_added_collection': collection_name,
-                    'sample': json_value,
-                    'example': json_value,
-                    'contains': Any(None, *list({str_type: Self} for str_type in string_types)),
-                    # in case of type='list' elements define type of individual item in list
-                    'elements': Any(None, 'bits', 'bool', 'bytes', 'dict', 'float', 'int', 'json', 'jsonarg', 'list', 'path', 'raw', 'sid', 'str'),
-                }
-            ),
+            Schema(inner_return_option_schema),
             Schema(return_contains),
             Schema(partial(version_added, error_code='option-invalid-version-added')),
         ),
@@ -454,18 +475,13 @@ def return_schema(for_collection, plugin_type='module'):
     # for example in Python 3: {str: return_contains_schema}
     list_dict_return_contains_schema = [{str_type: return_contains_schema} for str_type in string_types]
 
-    return_option_schema = {
-        Required('description'): Any(list_string_types, *string_types),
-        Required('type'): Any('bool', 'complex', 'dict', 'float', 'int', 'list', 'str'),
-        'version_added': version(for_collection),
-        'version_added_collection': collection_name,
-        'sample': json_value,
-        'example': json_value,
+    return_option_schema = dict(basic_return_option_schema)
+    return_option_schema.update({
         'contains': Any(None, *list_dict_return_contains_schema),
-        # in case of type='list' elements define type of individual item in list
-        'elements': Any(None, 'bits', 'bool', 'bytes', 'dict', 'float', 'int', 'json', 'jsonarg', 'list', 'path', 'raw', 'sid', 'str'),
-    }
+    })
     if plugin_type == 'module':
+        # 'returned' is required on top-level
+        del return_option_schema['returned']
         return_option_schema[Required('returned')] = Any(*string_types)
     return Any(
         All(
@@ -548,7 +564,7 @@ def doc_schema(module_name, for_collection=False, deprecated_module=False, plugi
         module_name = module_name[1:]
         deprecated_module = True
     doc_schema_dict = {
-        Required(plugin_type): module_name,
+        Required('module' if plugin_type == 'module' else 'name'): module_name,
         Required('short_description'): Any(*string_types),
         Required('description'): Any(list_string_types, *string_types),
         Required('author'): All(Any(None, list_string_types, *string_types), author),
