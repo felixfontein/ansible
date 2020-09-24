@@ -93,8 +93,8 @@ OS_CALL_REGEX = re.compile(r'os\.call.*')
 LOOSE_ANSIBLE_VERSION = LooseVersion('.'.join(ansible_version.split('.')[:3]))
 
 
-PLUGINS_WITHOUT_RETURN_VALUES = ('become', 'cache', 'cliconf', 'connection', 'httpapi', 'inventory', 'netconf', 'shell', 'strategy', 'vars')
-PLUGINS_WITHOUT_EXAMPLES = ('cliconf', 'shell', 'strategy')
+PLUGINS_WITH_RETURN_VALUES = ('module', )
+PLUGINS_WITH_EXAMPLES = ('module', )
 
 
 def compare_dates(d1, d2):
@@ -1049,18 +1049,12 @@ class ModuleValidator(Validator):
                         self._check_version_added(doc, existing_doc)
 
             if not bool(doc_info['EXAMPLES']['value']):
-                if self.plugin_type not in PLUGINS_WITHOUT_EXAMPLES:
+                if self.plugin_type in PLUGINS_WITH_EXAMPLES:
                     self.reporter.error(
                         path=self.object_path,
                         code='missing-examples',
                         msg='No EXAMPLES provided'
                     )
-            elif self.plugin_type in PLUGINS_WITHOUT_EXAMPLES:
-                self.reporter.error(
-                    path=self.object_path,
-                    code='has-examples',
-                    msg='{0} plugins must not have EXAMPLES'.format(self.plugin_type.title())
-                )
             else:
                 _doc, errors, traces = parse_yaml(doc_info['EXAMPLES']['value'],
                                                   doc_info['EXAMPLES']['lineno'],
@@ -1078,7 +1072,7 @@ class ModuleValidator(Validator):
                     )
 
             if not bool(doc_info['RETURN']['value']):
-                if self.plugin_type not in PLUGINS_WITHOUT_RETURN_VALUES:
+                if self.plugin_type in PLUGINS_WITH_RETURN_VALUES:
                     if self._is_new_module():
                         self.reporter.error(
                             path=self.object_path,
@@ -1091,12 +1085,6 @@ class ModuleValidator(Validator):
                             code='missing-return-legacy',
                             msg='No RETURN provided'
                         )
-            elif self.plugin_type in PLUGINS_WITHOUT_RETURN_VALUES:
-                self.reporter.warning(
-                    path=self.object_path,
-                    code='has-return',
-                    msg='{0} plugins must not have RETURN documentation'.format(self.plugin_type.title())
-                )
             else:
                 data, errors, traces = parse_yaml(doc_info['RETURN']['value'],
                                                   doc_info['RETURN']['lineno'],
