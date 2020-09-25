@@ -440,8 +440,8 @@ def return_schema(for_collection, plugin_type='module'):
         return_types = Any('bool', 'complex', 'dict', 'float', 'int', 'list', 'str')
         element_types = Any(None, 'bits', 'bool', 'bytes', 'dict', 'float', 'int', 'json', 'jsonarg', 'list', 'path', 'raw', 'sid', 'str')
     else:
-        option_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'path', 'str', 'string')
-        element_types = option_types
+        return_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'path', 'str', 'string')
+        element_types = return_types
 
     basic_return_option_schema = {
         Required('description'): Any(list_string_types, *string_types),
