@@ -332,6 +332,7 @@ def list_dict_option_schema(for_collection, plugin_type):
         'elements': element_types,
     }
     if plugin_type != 'module':
+        basic_option_schema['name'] = Any(*string_types)
         deprecated_schema = All(
             Schema(
                 All(
