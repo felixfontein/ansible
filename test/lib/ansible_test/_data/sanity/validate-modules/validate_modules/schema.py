@@ -569,7 +569,6 @@ def doc_schema(module_name, for_collection=False, deprecated_module=False, plugi
         Required('module' if plugin_type == 'module' else 'name'): module_name,
         Required('short_description'): Any(*string_types),
         Required('description'): Any(list_string_types, *string_types),
-        Required('author'): All(Any(None, list_string_types, *string_types), author),
         'notes': Any(None, list_string_types),
         'seealso': Any(None, seealso_schema),
         'requirements': list_string_types,
@@ -578,6 +577,11 @@ def doc_schema(module_name, for_collection=False, deprecated_module=False, plugi
         'extends_documentation_fragment': Any(list_string_types, *string_types),
         'version_added_collection': collection_name,
     }
+    if plugin_type == 'module':
+        doc_schema_dict[Required('author')] = All(Any(None, list_string_types, *string_types), author)
+    else:
+        # author is optional for plugins (for now)
+        doc_schema_dict['author'] = All(Any(None, list_string_types, *string_types), author)
     if plugin_type == 'callback':
         doc_schema_dict[Required('type')] = Any('aggregate', 'notification', 'stdout')
 
