@@ -315,8 +315,8 @@ def list_dict_option_schema(for_collection, plugin_type):
         element_types = option_types
     else:
         option_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'none',
-                           'path', 'tmp', 'temppath', 'tmppath', 'pathspec', 'pathlist', 'str', 'string')
-        element_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'path', 'str', 'string')
+                           'path', 'tmp', 'temppath', 'tmppath', 'pathspec', 'pathlist', 'str', 'string', 'raw')
+        element_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'path', 'str', 'string', 'raw')
 
     basic_option_schema = {
         Required('description'): Any(list_string_types, *string_types),
@@ -441,7 +441,7 @@ def return_schema(for_collection, plugin_type='module'):
         return_types = Any('bool', 'complex', 'dict', 'float', 'int', 'list', 'str')
         element_types = Any(None, 'bits', 'bool', 'bytes', 'dict', 'float', 'int', 'json', 'jsonarg', 'list', 'path', 'raw', 'sid', 'str')
     else:
-        return_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'path', 'str', 'string')
+        return_types = Any(None, 'boolean', 'bool', 'integer', 'int', 'float', 'list', 'dict', 'dictionary', 'path', 'str', 'string', 'raw')
         element_types = return_types
 
     basic_return_option_schema = {
