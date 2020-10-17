@@ -23,11 +23,12 @@ from ansible.module_utils.six import (
 )
 
 
-def count_terms(terms, module_parameters):
+def count_terms(terms, module_parameters, add_terms=None):
     """Count the number of occurrences of a key in a given dictionary
 
     :arg terms: String or iterable of values to check
     :arg module_parameters: Dictionary of module parameters
+    :arg add_terms: None or list to which all terms are added
 
     :returns: An integer that is the number of occurrences of the terms values
         in the provided dictionary.
@@ -35,6 +36,9 @@ def count_terms(terms, module_parameters):
 
     if not is_iterable(terms):
         terms = [terms]
+
+    if add_terms is not None:
+        add_terms.extend(terms)
 
     return len(set(terms).intersection(module_parameters))
 
@@ -68,7 +72,7 @@ def check_mutually_exclusive(terms, module_parameters):
     return results
 
 
-def check_required_one_of(terms, module_parameters):
+def check_required_one_of(terms, module_parameters, add_required=None):
     """Check each list of terms to ensure at least one exists in the given module
     parameters
 
@@ -77,6 +81,7 @@ def check_required_one_of(terms, module_parameters):
     :arg terms: List of lists of terms to check. For each list of terms, at
         least one is required.
     :arg module_parameters: Dictionary of module parameters
+    :arg add_required: None or list to which all required parameters are added
 
     :returns: Empty list or raises TypeError if the check fails.
     """
@@ -86,7 +91,7 @@ def check_required_one_of(terms, module_parameters):
         return results
 
     for term in terms:
-        count = count_terms(term, module_parameters)
+        count = count_terms(term, module_parameters, add_terms=add_required)
         if count == 0:
             results.append(term)
 
@@ -98,7 +103,7 @@ def check_required_one_of(terms, module_parameters):
     return results
 
 
-def check_required_together(terms, module_parameters):
+def check_required_together(terms, module_parameters, add_required=None):
     """Check each list of terms to ensure every parameter in each list exists
     in the given module parameters
 
@@ -108,6 +113,7 @@ def check_required_together(terms, module_parameters):
         parameters that are all required when at least one is specified
         in the module_parameters.
     :arg module_parameters: Dictionary of module parameters
+    :arg add_required: None or list to which all required parameters are added
 
     :returns: Empty list or raises TypeError if the check fails.
     """
@@ -117,7 +123,7 @@ def check_required_together(terms, module_parameters):
         return results
 
     for term in terms:
-        counts = [count_terms(field, module_parameters) for field in term]
+        counts = [count_terms(field, module_parameters, add_terms=add_required) for field in term]
         non_zero = [c for c in counts if c > 0]
         if len(non_zero) > 0:
             if 0 in counts:
@@ -130,7 +136,7 @@ def check_required_together(terms, module_parameters):
     return results
 
 
-def check_required_by(requirements, module_parameters):
+def check_required_by(requirements, module_parameters, add_required=None):
     """For each key in requirements, check the corresponding list to see if they
     exist in module_parameters
 
@@ -138,6 +144,7 @@ def check_required_by(requirements, module_parameters):
 
     :arg requirements: Dictionary of requirements
     :arg module_parameters: Dictionary of module parameters
+    :arg add_required: None or list to which all required parameters are added
 
     :returns: Empty dictionary or raises TypeError if the
     """
@@ -147,15 +154,17 @@ def check_required_by(requirements, module_parameters):
         return result
 
     for (key, value) in requirements.items():
-        if key not in module_parameters or module_parameters[key] is None:
+        if key not in module_parameters:
             continue
         result[key] = []
         # Support strings (single-item lists)
         if isinstance(value, string_types):
             value = [value]
         for required in value:
-            if required not in module_parameters or module_parameters[required] is None:
+            if required not in module_parameters:
                 result[key].append(required)
+            if add_required is not None:
+                add_required.append(required)
 
     if result:
         for key, missing in result.items():
@@ -166,7 +175,7 @@ def check_required_by(requirements, module_parameters):
     return result
 
 
-def check_required_arguments(argument_spec, module_parameters):
+def check_required_arguments(argument_spec, module_parameters, add_required=None):
     """Check all paramaters in argument_spec and return a list of parameters
     that are required but not present in module_parameters
 
@@ -175,6 +184,7 @@ def check_required_arguments(argument_spec, module_parameters):
     :arg argument_spec: Argument spec dicitionary containing all parameters
         and their specification
     :arg module_paramaters: Dictionary of module parameters
+    :arg add_required: None or list to which all required parameters are added
 
     :returns: Empty list or raises TypeError if the check fails.
     """
@@ -185,8 +195,11 @@ def check_required_arguments(argument_spec, module_parameters):
 
     for (k, v) in argument_spec.items():
         required = v.get('required', False)
-        if required and k not in module_parameters:
-            missing.append(k)
+        if required:
+            if add_required is not None:
+                add_required.append(k)
+            if k not in module_parameters:
+                missing.append(k)
 
     if missing:
         msg = "missing required arguments: %s" % ", ".join(sorted(missing))
@@ -195,7 +208,7 @@ def check_required_arguments(argument_spec, module_parameters):
     return missing
 
 
-def check_required_if(requirements, module_parameters):
+def check_required_if(requirements, module_parameters, add_required=None):
     """Check parameters that are conditionally required
 
     Raises TypeError if the check fails
@@ -211,6 +224,7 @@ def check_required_if(requirements, module_parameters):
             ]
 
     :arg module_paramaters: Dictionary of module parameters
+    :arg add_required: None or list to which all required parameters are added
 
     :returns: Empty list or raises TypeError if the check fails.
         The results attribute of the exception contains a list of dictionaries.
@@ -259,7 +273,7 @@ def check_required_if(requirements, module_parameters):
 
         if key in module_parameters and module_parameters[key] == val:
             for check in requirements:
-                count = count_terms(check, module_parameters)
+                count = count_terms(check, module_parameters, add_terms=add_required)
                 if count == 0:
                     missing['missing'].append(check)
         if len(missing['missing']) and len(missing['missing']) >= max_missing_count:
