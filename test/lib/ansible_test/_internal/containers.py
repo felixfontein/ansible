@@ -37,6 +37,7 @@ from .docker_util import (
     docker_create,
     docker_exec,
     docker_inspect,
+    docker_logs,
     docker_network_inspect,
     docker_pull,
     docker_rm,
@@ -114,6 +115,7 @@ def run_support_container(
     env: t.Optional[dict[str, str]] = None,
     options: t.Optional[list[str]] = None,
     publish_ports: bool = True,
+    show_logs: bool = False,
 ) -> t.Optional[ContainerDescriptor]:
     """
     Start a container used to support tests, but not run them.
@@ -177,6 +179,7 @@ def run_support_container(
         running,
         cleanup,
         env,
+        show_logs=show_logs,
     )
 
     with support_containers_mutex:
@@ -655,6 +658,7 @@ class ContainerDescriptor:
         running: bool,
         cleanup: bool,
         env: t.Optional[dict[str, str]],
+        show_logs: bool = False,
     ) -> None:
         self.image = image
         self.context = context
@@ -667,6 +671,7 @@ class ContainerDescriptor:
         self.cleanup = cleanup
         self.env = env
         self.details: t.Optional[SupportContainer] = None
+        self.show_logs = show_logs
 
     def start(self, args: EnvironmentConfig) -> None:
         """Start the container. Used for containers which are created, but not started."""
@@ -762,6 +767,8 @@ def wait_for_file(
 def cleanup_containers(args: EnvironmentConfig) -> None:
     """Clean up containers."""
     for container in support_containers.values():
+        if container.show_logs:
+            docker_logs(args, container.name)
         if container.cleanup:
             docker_rm(args, container.name)
 

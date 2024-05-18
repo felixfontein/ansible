@@ -54,6 +54,7 @@ class ACMEProvider(CloudProvider):
             self.image,
             'acme-simulator',
             ports,
+            show_logs=True,
         )
 
         if not descriptor:
